@@ -1,4 +1,4 @@
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -20,7 +20,7 @@ export function PlaylistManager({
   onSelect,
   onRemove,
 }: PlaylistManagerProps) {
-  const handleDragEnd = (result: any) => {
+  const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
     onReorder(result.source.index, result.destination.index);
   };
@@ -29,10 +29,10 @@ export function PlaylistManager({
     <Card>
       <CardContent className="p-4">
         <h3 className="font-semibold mb-4">Playlist</h3>
-        <ScrollArea className="h-[300px] pr-4">
-          <DragDropContext onDragEnd={handleDragEnd}>
-            <Droppable droppableId="playlist">
-              {(provided) => (
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Droppable droppableId="playlist-items">
+            {(provided) => (
+              <ScrollArea className="h-[300px] pr-4">
                 <div
                   {...provided.droppableProps}
                   ref={provided.innerRef}
@@ -44,11 +44,13 @@ export function PlaylistManager({
                       draggableId={item.id}
                       index={index}
                     >
-                      {(provided) => (
+                      {(provided, snapshot) => (
                         <div
                           ref={provided.innerRef}
                           {...provided.draggableProps}
                           className={`flex items-center gap-2 p-2 rounded-lg border ${
+                            snapshot.isDragging ? 'opacity-50' : ''
+                          } ${
                             currentItem?.id === item.id
                               ? 'bg-primary/10 border-primary'
                               : 'bg-card hover:bg-accent'
@@ -92,10 +94,10 @@ export function PlaylistManager({
                   ))}
                   {provided.placeholder}
                 </div>
-              )}
-            </Droppable>
-          </DragDropContext>
-        </ScrollArea>
+              </ScrollArea>
+            )}
+          </Droppable>
+        </DragDropContext>
       </CardContent>
     </Card>
   );
