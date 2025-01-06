@@ -22,7 +22,6 @@ export function Waveform({ url, onReady, onError }: WaveformProps) {
       cursorColor: 'rgb(100, 0, 100)',
       barWidth: 2,
       barRadius: 3,
-      responsive: true,
       height: 60,
       normalize: true,
       partialRender: true,
@@ -36,17 +35,28 @@ export function Waveform({ url, onReady, onError }: WaveformProps) {
     });
 
     wavesurfer.on('error', (error) => {
+      console.error('Wavesurfer error:', error);
       onError?.(error.message || 'Error loading audio waveform');
     });
 
     try {
       wavesurfer.load(url);
     } catch (error) {
+      console.error('Load error:', error);
       onError?.((error as Error).message || 'Error loading audio waveform');
     }
 
     return () => {
-      wavesurfer.destroy();
+      if (wavesurferRef.current) {
+        try {
+          // Remove all event listeners first
+          wavesurferRef.current.unAll();
+          wavesurferRef.current.destroy();
+        } catch (error) {
+          console.error('Cleanup error:', error);
+        }
+        wavesurferRef.current = null;
+      }
     };
   }, [url]);
 
