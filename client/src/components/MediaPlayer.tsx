@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import RxPlayer from 'rx-player';
 import type { MediaSource } from '@/lib/types';
-import { Waveform } from './Waveform';
 
 interface MediaPlayerProps {
   source: MediaSource;
@@ -11,8 +10,6 @@ interface MediaPlayerProps {
 export function MediaPlayer({ source, onError }: MediaPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<RxPlayer | null>(null);
-  const [isAudio, setIsAudio] = useState(false);
-  const [mediaUrl, setMediaUrl] = useState<string>('');
 
   useEffect(() => {
     if (!videoRef.current) return;
@@ -44,23 +41,21 @@ export function MediaPlayer({ source, onError }: MediaPlayerProps) {
 
     const loadContent = async () => {
       try {
-        let url: string;
         if (source.type === 'url') {
-          url = source.content as string;
-        } else {
+          await playerRef.current.loadVideo({
+            url: source.content as string,
+            transport: source.transport || 'dash',
+            autoPlay: true,
+          });
+        } else if (source.type === 'file') {
           const file = source.content as File;
-          url = URL.createObjectURL(file);
-          // Check if it's an audio file
-          setIsAudio(file.type.startsWith('audio/'));
+          const url = URL.createObjectURL(file);
+          await playerRef.current.loadVideo({
+            url,
+            transport: 'directfile',
+            autoPlay: true,
+          });
         }
-
-        setMediaUrl(url);
-
-        await playerRef.current.loadVideo({
-          url,
-          transport: source.transport || 'directfile',
-          autoPlay: true,
-        });
       } catch (error) {
         onError(`Failed to load media: ${(error as Error).message}`);
       }
@@ -70,30 +65,13 @@ export function MediaPlayer({ source, onError }: MediaPlayerProps) {
   }, [source]);
 
   return (
-    <div className="relative w-full bg-black rounded-lg overflow-hidden">
-      {isAudio ? (
-        <div className="p-4">
-          <Waveform 
-            url={mediaUrl}
-            onError={onError}
-          />
-          <video
-            ref={videoRef}
-            className="hidden"
-            controls
-            playsInline
-          />
-        </div>
-      ) : (
-        <div className="aspect-video">
-          <video
-            ref={videoRef}
-            className="w-full h-full"
-            controls
-            playsInline
-          />
-        </div>
-      )}
+    <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
+      <video
+        ref={videoRef}
+        className="w-full h-full"
+        controls
+        playsInline
+      />
     </div>
   );
 }
