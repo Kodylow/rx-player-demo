@@ -1,0 +1,887 @@
+Rx-Player API
+
+Overview
+The Rx-player has a complete API allowing you to:
+
+load and stop streams
+perform trickmodes (play, pause, seek, etc.) as a content is loaded.
+get multiple informations on the current stream and on the player’s state.
+choose a specific audio language or subtitles track
+set your own bitrate and buffer length
+and more
+The following pages define the entire API.
+
+⚠️ Only variables and methods defined here are considered as part of the API. Any other property or method you might find by using our library can change without notice (not considered as part of the API).
+
+Only use the documented variables and open an issue if you think it’s not enough.
+
+Note: As some terms used here might be too foreign or slightly different than the one you’re used to, we also wrote a list of terms and definitions used by the RxPlayer here.
+
+
+Instantiation
+Instantiating a new player is straightforward:
+
+import RxPlayer from "rx-player";
+const player = new RxPlayer(options);
+The options are all… optional. They are all defined in the Player Options page.
+
+
+Static properties
+
+version
+type: Number
+
+The current version of the RxPlayer.
+
+
+ErrorTypes
+type: Object
+
+The different “types” of Error you can get on playback error,
+
+See the Player Error documentation for more informations.
+
+
+ErrorCodes
+type: Object
+
+The different Error “codes” you can get on playback error,
+
+See the Player Error documentation for more informations.
+
+
+LogLevel
+type: string
+
+default: "NONE"
+
+The current level of verbosity for the RxPlayer logs. Those logs all use the console.
+
+From the less verbose to the most:
+
+"NONE": no log
+
+"ERROR": unexpected errors (via console.error)
+
+"WARNING": The previous level + minor problems encountered (via console.warn)
+
+"INFO": The previous levels + noteworthy events (via console.info)
+
+"DEBUG": The previous levels + normal events of the player (via console.log)
+
+If the value set to this property is different than those, it will be automatically set to "NONE".
+
+Example
+import RxPlayer from "rx-player";
+RxPlayer.LogLevel = "WARNING";
+
+Tools
+
+MediaCapabilitiesProber
+type: Object
+
+An experimental tool to probe browser media capabilities:
+
+Decoding capabilities
+DRM support
+HDCP support
+Display capabilities
+You can find its documentation here.
+
+
+Methods
+
+loadVideo
+arguments:
+
+options (Object)
+Loads a new video described in the argument.
+
+The options possible as arguments are all defined in this page.
+
+Example
+player.loadVideo({
+  url: "http://vm2.dashif.org/livesim-dev/segtimeline_1/testpic_6s/Manifest.mpd",
+  transport: "dash",
+  autoPlay: true,
+});
+
+getVideoElement
+return value: HTMLMediaElement
+
+Returns the video element used by the player.
+
+You’re not encouraged to use its API, you should always prefer the Player’s API.
+
+Example
+const videoElement = player.getVideoElement();
+videoElement.className = "my-video-element";
+
+getPlayerState
+return value: string
+
+The current player’s state. Can be either one of those strings:
+
+"STOPPED": The player is idle. No content is loading nor is loaded.
+
+"LOADING": The player is loading a new content.
+
+"LOADED": The player can begin to play a new stream.
+
+"PLAYING": The player is currently playing the stream.
+
+"PAUSED": The player has paused.
+
+"ENDED": The player has reached the end of the stream.
+
+"BUFFERING": the player has reached the end of the buffer and is waiting for data to be appended.
+
+"SEEKING": The player has reached the end of the buffer because a seek has been performed, new segments are being loaded.
+
+State chart:
+
+    +---------+
+    | STOPPED | <-------------------+
+    +---------+                     | stop() or "error" event
+       |                            |
++------| loadVideo() ----------------------------------------------------+
+|      |                           +---------------------+               |
+|      V                           |                     |               |
+|  +---------+     +--------+   play()   +---------+     |    +-------+  |
+|  | LOADING | --> | LOADED | -----|---> | PLAYING | ----|--> | ENDED |  |
+|  +---------+     +--------+  autoPlay  +---------+     |    +-------+  |
+|                                  |         | ^         |               |
+|       +-----------+              |         | |         |               |
+|       | BUFFERING |  <-------->  |  play() | | pause() |               |
+|       +-----------+              |         | |         |               |
+|                                  |         | |         |               |
+|       +---------+    seekTo()    |         V |         |               |
+|       |         |  <-----------  |     +--------+      |               |
+|       | SEEKING |                |     | PAUSED |      |               |
+|       |         |  ----------->  |     +--------+      |               |
+|       +---------+                |                     |               |
+|                                  +---------------------+               |
++------------------------------------------------------------------------+
+Example
+switch (player.getPlayerState()) {
+  case "STOPPED":
+    console.log("No content is/will be playing");
+    break;
+  case "LOADING":
+    console.log("A new content is currently loading");
+    break;
+  case "LOADED":
+    console.log("The new content is loaded and ready to be played");
+    break;
+  case "PLAYING":
+    console.log("The content is currently playing");
+    break;
+  case "PAUSED":
+    console.log("The content is currently paused");
+    break;
+  case "BUFFERING":
+    console.log("The content is buffering new data");
+    break;
+  case "SEEKING":
+    console.log("The content is still seeking, waiting for new data");
+    break;
+  case "ENDED":
+    console.log("The content has reached the end.");
+    break;
+  default:
+    console.log("This is impossible (issue material!).")
+    break;
+}
+
+addEventListener
+arguments:
+
+event (string): The event name.
+
+callback (Function): The callback for the event. The same callback may be used again when calling removeEventListener.
+
+Add an event listener to trigger a callback as it happens. The callback will have the event payload as a single argument.
+
+To have the complete list of player events, consult the Player events page.
+
+Example
+player.addEventListener("Error", function(err) {
+  console.log(`The player crashed: ${err.message}`);
+});
+
+removeEventListener
+arguments:
+
+event (string): The event name.
+callback (optional) (Function): The callback given when calling the corresponding addEventListener API.
+Remove an event listener. That is, stop your registered callback (with addEventListener) to be called as events happen and free up ressources.
+
+The callback given is optional: if not given, every registered callback to that event will be removed. That’s why using both arguments is recommended for most usecase.
+
+Example
+player.removeEventListener("playerStateChange", listenerCallback);
+
+play
+Play/resume the current video. Equivalent to a video element’s play method.
+
+Example
+const resumeContent = () => {
+  player.play();
+};
+
+pause
+Pause the current video. Equivalent to a video element’s pause method.
+
+Note that a content can be paused even if its current state is BUFFERING or SEEKING.
+
+Example
+const pauseContent = () => {
+  player.pause();
+};
+
+stop
+Stop playback of the current content if one.
+
+Example
+const stopVideo = () => {
+  player.stop();
+};
+
+getPosition
+return value: Number
+
+Returns the video element’s current position, in seconds.
+
+The difference with the getWallClockTime method is that for live contents the position is not re-calculated to match a live timestamp.
+
+Example
+const pos = player.getPosition();
+console.log(`The video element's current position is: ${pos} second(s)`);
+
+getWallClockTime
+return value: Number
+
+Returns the wall-clock-time of the current position in seconds.
+
+That is:
+
+for live content, get a timestamp in seconds of the current position.
+for static content, returns the position from beginning, also in seconds.
+Use this method to display the current position to the user.
+
+Example
+const wallClockTime = player.getWallClockTime();
+const nowInSeconds = Date.now() / 1000;
+const delta = nowInSeconds - wallClockTime;
+
+if (delta < 5) { // (5 seconds of margin)
+  console.log("You're playing live");
+} else {
+  console.log(`You're playing ${delta} seconds behind the live content`);
+}
+
+getVideoDuration
+return value: Number
+
+Returns the duration of the current video, directly from the video element.
+
+Example
+const pos = player.getPosition();
+const dur = player.getVideoDuration();
+
+console.log(`current position: ${pos} / ${dur}`);
+
+getVolume
+return value: Number
+
+Current volume of the player, from 0 (no sound) to 1 (maximum sound). 0 if muted (different than videoElement.muted).
+
+Example
+const volume = player.getVolume();
+
+if (volume === 1) {
+  console.log("You're playing at maximum volume");
+} else if (volume === 0) {
+  console.log("You're playing at no volume");
+} else if (volume > 0.5) {
+  console.log("You're playing at a high volume");
+} else {
+  console.log("You're playing at a low volume");
+}
+
+getError
+return value: Error|null
+
+Returns the fatal error if it happened. null otherwise.
+
+See the Player Error documentation for more informations.
+
+Example
+const error = player.getError();
+
+if (!error) {
+  console.log("The player did not crash");
+} else if (error.code === "PIPELINE_LOAD_ERROR") {
+  console.error("The player crashed due to a failing request");
+} else {
+  console.error(`The player crashed: ${error.code}`);
+}
+
+seekTo
+arguments: Object|Number
+
+Seek in the current content.
+
+The argument can be an object with a single Number property, either:
+
+relative: seek relatively to the current position
+
+position: seek to the given absolute position (equivalent to player.getVideoElement().currentTime = newPosition)
+
+wallClockTime: seek to the given wallClock position, as returned by getWallClockTime.
+
+The argument can also just be a Number property, which will have the same effect than the position property (absolute position).
+
+Example
+// seeking to 54 seconds from the start of the content
+player.seekTo({ position: 54 });
+
+// equivalent to just:
+player.seekTo(54);
+
+// seeking 5 seconds after the current position
+player.seekTo({ relative: 5 });
+
+// seeking 5 seconds before the current position
+player.seekTo({ relative: -5 });
+
+// seeking to live content
+player.seekTo({ wallClockTime: Date.now() / 1000 });
+
+isLive
+return value: Boolean
+
+Returns true if the content is “live”. false otherwise.
+
+Also false if no content is loaded yet.
+
+Example
+if (player.isLive()) {
+  console.log("We're playing a live content");
+}
+
+getUrl
+return value: string|undefined
+
+Returns the URL of the downloaded manifest.
+
+In DirectFile mode (see loadVideo options), returns the URL of the content being played.
+
+Returns undefined if no content is loaded yet.
+
+Example
+const url = player.getUrl();
+if (url) {
+  console.log("We are playing the following content:", url);
+}
+
+isFullscreen
+return value: Boolean
+
+Returns true if the video element is in fullscreen mode, false otherwise.
+
+Example
+if (player.isFullscreen()) {
+  console.log("The player is in fullscreen mode");
+}
+
+getAvailableVideoBitrates
+return value: Array.<Number>
+
+The different bitrates available for the current video adaptation, in bits per seconds.
+
+In DirectFile mode (see loadVideo options), returns an empty Array.
+
+Example
+const videoBitrates = player.getAvailableVideoBitrates();
+if (videoBitrates.length) {
+  console.log(
+    "The current video is available in the following bitrates",
+    videoBitrates.join(", ")
+  );
+}
+
+getAvailableAudioBitrates
+return value: Array.<Number>
+
+The different bitrates available for the current audio adaptation, in bits per seconds.
+
+In DirectFile mode (see loadVideo options), returns an empty Array.
+
+Example
+const audioBitrates = player.getAvailableAudioBitrates();
+if (audioBitrates.length) {
+  console.log(
+    "The current audio is available in the following bitrates",
+    audioBitrates.join(", ")
+  );
+}
+
+getVideoBitrate
+return value: Number|undefined
+
+Returns the video bitrate of the last downloaded video segment, in bits per seconds.
+
+Returns undefined if no content is loaded.
+
+In DirectFile mode (see loadVideo options), returns undefined.
+
+
+getAudioBitrate
+return value: Number|undefined
+
+Returns the audio bitrate of the last downloaded audio segment, in bits per seconds.
+
+Returns undefined if no content is loaded.
+
+In DirectFile mode (see loadVideo options), returns undefined.
+
+
+getMaxVideoBitrate
+return value: Number|undefined
+
+Returns the maximum set video bitrate to which switching is possible, in bits per seconds.
+
+This only affects adaptive strategies (you can bypass this limit by calling setVideoBitrate), and is set to Infinity when no limit has been set.
+
+
+getMaxAudioBitrate
+return value: Number"undefined
+
+Returns the maximum set audio bitrate to which switching is possible, in bits per seconds.
+
+This only affects adaptive strategies (you can bypass this limit by calling setAudioBitrate), and is set to Infinity when no limit has been set.
+
+
+setVideoBitrate
+arguments: Number
+
+Force the current video track to be of a certain bitrate.
+
+If a video representation is found with the exact same bitrate, this representation will be set.
+
+If no video representation is found with the exact same bitrate, either:
+
+the video representation immediately inferior to it will be chosen instead (the closest inferior)
+
+if no video representation has a bitrate lower than that value, the video representation with the lowest bitrate will be chosen instead.
+
+Set to -1 to deactivate (and thus re-activate adaptive streaming for video tracks).
+
+When active (called with a positive value), adaptive streaming for video tracks will be disabled to stay in the chosen representation.
+
+You can use getAvailableVideoBitrates to get the list of available bitrates you can set on the current content.
+
+Note that the value set is persistent between loadVideo calls. As such, this method can also be called when no content is playing (the same rules apply for future contents).
+
+⚠️ This option will have no effect for contents loaded in DirectFile mode (see loadVideo options).
+
+
+setAudioBitrate
+arguments: Number
+
+Force the current audio track to be of a certain bitrate.
+
+If an audio representation (in the current audio adaptation) is found with the exact same bitrate, this representation will be set.
+
+If no audio representation is found with the exact same bitrate, either:
+
+the audio representation immediately inferior to it will be chosen instead (the closest inferior)
+
+if no audio representation has a bitrate lower than that value, the audio representation with the lowest bitrate will be chosen instead.
+
+Set to -1 to deactivate (and thus re-activate adaptive streaming for audio tracks).
+
+When active (called with a positive value), adaptive streaming for audio tracks will be disabled to stay in the chosen representation.
+
+You can use getAvailableAudioBitrates to get the list of available bitrates you can set on the current content.
+
+Note that the value set is persistent between loadVideo calls. As such, this method can also be called when no content is playing (the same rules apply for future contents).
+
+⚠️ This option will have no effect for contents loaded in DirectFile mode (see loadVideo options).
+
+
+getManualVideoBitrate
+arguments: Number
+
+Get the last video bitrate manually set. Either via setVideoBitrate or via the initialVideoBitrate constructor option.
+
+This value can be different than the one returned by getVideoBitrate:
+
+getManualVideoBitrate returns the last bitrate set manually by the user
+getVideoBitrate returns the actual bitrate of the current video track
+-1 when no video bitrate is forced.
+
+
+getManualAudioBitrate
+arguments: Number
+
+Get the last audio bitrate manually set. Either via setAudioBitrate or via the initialAudioBitrate constructor option.
+
+This value can be different than the one returned by getAudioBitrate:
+
+getManualAudioBitrate returns the last bitrate set manually by the user
+getAudioBitrate returns the actual bitrate of the current audio track
+-1 when no audio bitrate is forced.
+
+
+setMaxVideoBitrate
+arguments: Number
+
+Set the maximum video bitrate reachable through adaptive streaming. The player will never automatically switch to a video representation with a higher bitrate.
+
+This limit can be removed by setting it to Infinity:
+
+// remove video bitrate limit
+player.setMaxVideoBitrate(Infinity);
+This only affects adaptive strategies (you can bypass this limit by calling setVideoBitrate).
+
+⚠️ This option will have no effect for contents loaded in DirectFile mode (see loadVideo options).
+
+
+setMaxAudioBitrate
+arguments: Number
+
+Set the maximum audio bitrate reachable through adaptive streaming. The player will never automatically switch to a audio representation with a higher bitrate.
+
+This limit can be removed by setting it to Infinity:
+
+// remove audio bitrate limit
+player.setMaxAudioBitrate(Infinity);
+This only affects adaptive strategies (you can bypass this limit by calling setAudioBitrate).
+
+⚠️ This option will have no effect for contents loaded in DirectFile mode (see loadVideo options).
+
+
+setWantedBufferAhead
+arguments: Number
+
+Set the buffering goal, as a duration ahead of the current position, in seconds. Once this size of buffer reached, the player won’t try to download new video segments anymore.
+
+⚠️ This option will have no effect for contents loaded in DirectFile mode (see loadVideo options).
+
+
+getWantedBufferAhead
+return value: Number defaults: 30
+
+returns the buffering goal, as a duration ahead of the current position, in seconds.
+
+
+setMaxBufferBehind
+arguments: Number
+
+Set the maximum kept past buffer, in seconds. Everything before that limit (currentPosition - maxBufferBehind) will be automatically garbage collected.
+
+This feature is not necessary as the browser is already supposed to deallocate memory from old segments if/when the memory is scarce.
+
+However on some custom targets, or just to better control the memory imprint of the player, you might want to set this limit. You can set it to Infinity to remove any limit and just let the browser do this job.
+
+⚠️ This option will have no effect for contents loaded in DirectFile mode (see loadVideo options).
+
+
+getMaxBufferBehind
+return value: Number defaults: Infinity
+
+Returns the maximum kept past buffer, in seconds.
+
+
+setMaxBufferAhead
+arguments: Number
+
+Set the maximum kept buffer ahead of the current position, in seconds. Everything superior to that limit (currentPosition + maxBufferAhead) will be automatically garbage collected. This feature is not necessary as the browser is already supposed to deallocate memory from old segments if/when the memory is scarce.
+
+However on some custom targets, or just to better control the memory imprint of the player, you might want to set this limit. You can set it to Infinity to remove any limit and just let the browser do this job.
+
+The minimum value between this one and the one returned by getWantedBufferAhead will be considered when downloading new segments.
+
+⚠️ Bear in mind that a too-low configuration there (e.g. inferior to 10) might prevent the browser to play the content at all.
+
+⚠️ This option will have no effect for contents loaded in DirectFile mode (see loadVideo options).
+
+
+getMaxBufferAhead
+return value: Number defaults: Infinity
+
+Returns the maximum kept buffer ahead of the current position, in seconds.
+
+
+setFullscreen
+arguments: Boolean
+
+Switch or exit the <video> element to fullscreen mode. The argument is an optional boolean:
+
+if set:
+
+true: enters fullscreen
+false: exit fullscreen
+if not set: enter fullscreen
+
+Note that only the video element will be set to fullscreen mode. You might prefer to implement your own method to include your controls in the final UI.
+
+
+exitFullscreen
+Exit fullscreen mode. Same than setFullscreen(false).
+
+
+setVolume
+arguments: Number
+
+Set the new volume, from 0 (no sound) to 1 (the maximum sound level).
+
+
+mute
+Cut the volume. Basically set the volume to 0 while keeping in memory the previous volume.
+
+
+unMute
+Restore the volume when it has been muted, to the one previous the mute call.
+
+
+isMute
+returns: Boolean
+
+Returns true if the volume is muted i.e., set to 0.
+
+
+getAvailableAudioTracks
+returns: Array.<Object>
+
+Returns the list of available audio tracks for the current content.
+
+Each of the objects in the returned array have the following properties:
+
+id (Number|string): The id used to identify the track. Use it for setting the track via setAudioTrack.
+
+language (string): The language the audio track is in, as set in the manifest.
+
+normalized (string): An attempt to translate the language property into an ISO 639-3 language code (for now only support translations from ISO 639-1 and ISO 639-2 language codes). If the translation attempt fails (no corresponding ISO 639-3 language code is found), it will equal the value of language
+
+audioDescription (Boolean): Whether the track is an audio description (for the visually impaired or not).
+
+active (Boolean): Whether the track is the one currently active or not.
+
+In DirectFile mode (see loadVideo options), returns an empty Array.
+
+
+getAvailableTextTracks
+returns: Array.<Object>
+
+Returns the list of available text tracks (subtitles) for the current content.
+
+Each of the objects in the returned array have the following properties:
+
+id (Number|string): The id used to identify the track. Use it for setting the track via setTextTrack.
+
+language (string): The language the text track is in, as set in the manifest.
+
+normalized (string): An attempt to translate the language property into an ISO 639-3 language code (for now only support translations from ISO 639-1 and ISO 639-2 language codes). If the translation attempt fails (no corresponding ISO 639-3 language code is found), it will equal the value of language
+
+closedCaption (Boolean): Whether the track is specially adapted for the hard of hearing or not.
+
+active (Boolean): Whether the track is the one currently active or not.
+
+In DirectFile mode (see loadVideo options), returns an empty Array.
+
+
+getAudioTrack
+returns: Object|null|undefined
+
+Get the audio track currently set. null if no audio track is enabled right now.
+
+The track is an object with the following properties:
+
+id (Number|string): The id used to identify the track. Use it for setting the track via setAudioTrack.
+
+language (string): The language the audio track is in, as set in the manifest.
+
+normalized (string): An attempt to translate the language property into an ISO 639-3 language code (for now only support translations from ISO 639-1 and ISO 639-3 language codes). If the translation attempt fails (no corresponding ISO 639-3 language code is found), it will equal the value of language
+
+audioDescription (Boolean): Whether the track is an audio description (for the visually impaired or not).
+
+undefined if no content has been loaded yet.
+
+undefined in DirectFile mode (see loadVideo options).
+
+
+getTextTrack
+returns: Object|null
+
+Get the audio track currently set. null if no text track is enabled right now.
+
+The track is an object with the following properties:
+
+id (Number|string): The id used to identify the track. Use it for setting the track via setTextTrack.
+
+language (string): The language the text track is in, as set in the manifest.
+
+normalized (string): An attempt to translate the language property into an ISO 639-3 language code (for now only support translations from ISO 639-1 and ISO 639-3 language codes). If the translation attempt fails (no corresponding ISO 639-3 language code is found), it will equal the value of language
+
+closedCaption (Boolean): Whether the track is specially adapted for the hard of hearing or not.
+
+undefined if no content has been loaded yet.
+
+undefined in DirectFile mode (see loadVideo options).
+
+
+setAudioTrack
+arguments: string|Number
+
+Set a new audio track from its id, recuperated from getAvailableAudioTracks.
+
+⚠️ This option will have no effect for contents loaded in DirectFile mode (see loadVideo options).
+
+
+setTextTrack
+arguments: string
+
+Set a new text track from its id, recuperated from getAvailableTextTracks.
+
+⚠️ This option will have no effect for contents loaded in DirectFile mode (see loadVideo options).
+
+
+disableTextTrack
+Deactivate the current text track, if one.
+
+⚠️ This option will have no effect for contents loaded in DirectFile mode (see loadVideo options).
+
+
+getManifest
+return value: Manifest|null
+
+Returns the current loaded Manifest if one. A manifest object structure is relatively complex and is described in the Manifest Object structure page.
+
+null if the player is either stopped or not loaded.
+
+null in DirectFile mode (see loadVideo options).
+
+The manifest will be available before the player reaches the "LOADED" state.
+
+
+getCurrentAdaptations
+return value: Object|null
+
+Returns the Adaptations being loaded per type if a manifest is loaded. The returned object will have at most a key for each type (“video”, “audio”, “text” and “image”) which will each contain an array of Adaptation Objects.
+
+An Adaptation object structure is relatively complex and is described in the Manifest Object structure page.
+
+null if the current Adaptations are not known yet.
+
+null in DirectFile mode (see loadVideo options).
+
+
+getCurrentRepresentations
+return value: Object|null
+
+Returns the Representations being loaded per type if a manifest is loaded. The returned object will have at most a key for each type (“video”, “audio”, “text” and “image”) which will each contain an array of Representation Objects.
+
+An Representation object structure is relatively complex and is described in the Manifest Object structure page.
+
+null if the current Representations are not known yet.
+
+null in DirectFile mode (see loadVideo options).
+
+
+dispose
+Free the ressources used by the player.
+
+!warning!: The player won’t work correctly after calling this method.
+
+
+getNativeTextTrack
+return value: TextTrack|null
+
+Returns the first text track of the video’s element, null if none.
+
+This is equivalent to:
+
+const el = player.getVideoElement();
+const textTrack = el.textTracks.length ? el.textTracks[0] : null;
+
+getVideoLoadedTime
+return value: Number
+
+Returns in seconds the difference between:
+
+the start of the current contiguous loaded range.
+the end of it.
+
+getVideoPlayedTime
+return value: Number
+
+Returns in seconds the difference between:
+
+the start of the current contiguous loaded range.
+the current time.
+
+getVideoBufferGap
+return value: Number
+
+Returns in seconds the difference between:
+
+the current time.
+the end of the current contiguous loaded range.
+
+getPlaybackRate
+return value: Number
+
+Returns the current video normal playback rate (speed when playing). 1 for normal playback, 2 when playing *2, etc.
+
+
+setPlaybackRate
+arguments: Number
+
+Updates the “normal” (when playing) playback rate for the video.
+
+
+getCurrentKeySystem
+return value: string|undefined
+
+Returns the type of keySystem used for DRM-protected contents.
+
+
+getImageTrackData
+return value: Array.<Object>|null
+
+The current image track’s data, null if no content is loaded / no image track data is available.
+
+The returned array follows the usual image playlist structure, defined here.
+
+null in DirectFile mode (see loadVideo options).
+
+
+getMinimumPosition
+return value: Number|null
+
+The minimum seekable player position. null if no content is loaded.
+
+This is useful for live contents, where server-side buffer size are often not infinite. This method allows thus to seek at the earliest possible time.
+
+Example
+// seeking to the earliest position possible (beginning of the buffer for live
+// contents, position '0' for non-live contents).
+player.seekTo({
+  position: player.getMinimumPosition()
+});
+
+getMaximumPosition
+return value: Number|null
+
+The maximum seekable player position. null if no content is loaded.
+
+This is useful for live contents, where the buffer end updates continously. This method allows thus to seek directly at the live edge of the content.
+
+Example
+// seeking to the end
+player.seekTo({
+  position: player.getMaximumPosition()
+});
